@@ -11,6 +11,7 @@
   "host_permissions": [
     "https://leetcode.com/*",
     "https://*.leetcode.com/*",
+    "https://leetcode.com/graphql/*",
     "https://www.geeksforgeeks.org/*",
     "https://practice.geeksforgeeks.org/*",
     "https://practiceapi.geeksforgeeks.org/*",

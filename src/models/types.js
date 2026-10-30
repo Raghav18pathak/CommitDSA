@@ -14,6 +14,7 @@
  * @property {Array<string>} topics - Associated problem tags/topics
  * @property {string} code - The accepted solution source code
  * @property {string} url - Direct link to the problem page
+ * @property {string} [statement] - Full problem statement when available
  * @property {number} solvedAt - Timestamp of submission acceptance
  * @property {Object} [metadata] - Flexible free-form container for metadata (e.g. runtime, memory, submissionId)
  */

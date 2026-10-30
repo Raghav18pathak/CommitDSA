@@ -13,6 +13,7 @@ It has no backend server, no telemetry, and no account system. Your GitHub token
 - Retry failed syncs through a persistent local queue.
 - Keep platform stats and daily challenge data in the popup.
 - Generate clean source files with problem metadata headers.
+- Store each problem in a shared difficulty folder with a per-problem README.
 - Update the target repository README with a DSA portfolio table.
 - Store all credentials locally in the browser sandbox.
 

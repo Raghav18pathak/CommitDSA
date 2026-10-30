@@ -2,17 +2,18 @@
 
 import { NetworkError, InvalidTokenError, RepoNotFoundError, RateLimitError } from '../utils/errors.js';
 import { Logger } from '../utils/Logger.js';
-import { getSyncPath } from '../utils/path.js';
+import { decodeBase64, encodeBase64, updateReadmeTable } from '../utils/readme.js';
 
 const log = new Logger('SyncService');
 
 export class SyncService {
+  static readmeQueue = Promise.resolve();
   /**
    * Pushes a file payload directly to GitHub.
    * Strictly acts as a network caller; formatting/casing is delegated to utilities.
    * 
    * @param {Object} payload - Pre-formatted solution payload.
-   * @param {string} payload.path - Relative target repository path (e.g. 'LeetCode/Easy/1_TwoSum.py').
+   * @param {string} payload.path - Relative target repository path (e.g. 'Easy/LC-0001-Two-Sum/solution.py').
    * @param {string} payload.content - Formatted file content string.
    * @param {string} payload.commitMessage - Commit message text.
    * @param {Object} config - Config settings.
@@ -65,7 +66,7 @@ export class SyncService {
     // Construct the commit request body
     const body = {
       message: commitMessage,
-      content: btoa(unescape(encodeURIComponent(content))), // Unicode safe base64
+      content: encodeBase64(content),
     };
     if (sha) body.sha = sha;
     if (githubBranch) body.branch = githubBranch;
@@ -92,6 +93,35 @@ export class SyncService {
 
     log.info(`Pushed solution: ${path} successfully to branch: ${githubBranch}`);
     return true;
+  }
+
+  /**
+   * Pushes the per-problem README beside its solution.
+   *
+   * @param {Object} solvedProblem
+   * @param {string} solutionPath
+   * @param {Object} config
+   * @returns {Promise<boolean>}
+   */
+  static async pushProblemReadme(solvedProblem, solutionPath, config) {
+    const folder = solutionPath.split('/').slice(0, -1).join('/');
+    const statement = solvedProblem.statement || solvedProblem.problemStatement;
+    const title = solvedProblem.title || solvedProblem.slug;
+    const difficulty = solvedProblem.difficulty || 'Medium';
+    const url = solvedProblem.url || '';
+    const solutionFile = solutionPath.split('/').pop();
+    let content = `# ${title}\n\n`;
+    content += `- **Platform:** ${solvedProblem.platform}\n`;
+    content += `- **Difficulty:** ${difficulty}\n`;
+    content += `- **Problem:** [${url}](${url})\n`;
+    content += `- **Solution:** [${solutionFile}](./${solutionFile})\n`;
+    if (statement) content += `\n## Problem Statement\n\n${statement}\n`;
+
+    return this.pushToGitHub({
+      path: `${folder}/README.md`,
+      content,
+      commitMessage: `Docs ${solvedProblem.platform} - ${title}`
+    }, config);
   }
 
   /**
@@ -137,6 +167,17 @@ export class SyncService {
    * @returns {Promise<boolean>}
    */
   static async updateReadme(completedItems, config) {
+    const update = SyncService.readmeQueue.then(() => SyncService._updateReadme(completedItems, config));
+    SyncService.readmeQueue = update.catch(() => {});
+    return update;
+  }
+
+  /**
+   * Performs one serialized README update.
+   *
+   * @private
+   */
+  static async _updateReadme(completedItems, config, retryCount = 0) {
     const { githubToken, githubRepo, githubBranch = 'main' } = config;
     if (!githubToken || !githubRepo) return false;
 
@@ -162,7 +203,7 @@ export class SyncService {
         const getJson = await getRes.json();
         sha = getJson.sha;
         // Decode base64 to string safely
-        existingContent = decodeURIComponent(escape(atob(getJson.content)));
+        existingContent = decodeBase64(getJson.content);
       } else if (getRes.status !== 404) {
         // Log error and proceed, don't throw to avoid breaking main sync flow
         log.warn(`Failed to fetch README.md (Status: ${getRes.status})`);
@@ -173,40 +214,16 @@ export class SyncService {
       return false;
     }
 
-    // Generate the portfolio markdown
-    const portfolioMarkdown = this._generatePortfolioMarkdown(completedItems);
-
-    const startMarker = '<!-- COMMITDSA_START -->';
-    const endMarker = '<!-- COMMITDSA_END -->';
-
-    let updatedContent = '';
-    if (existingContent.includes(startMarker) && existingContent.includes(endMarker)) {
-      // Replace existing content between markers
-      const startIndex = existingContent.indexOf(startMarker);
-      const endIndex = existingContent.indexOf(endMarker) + endMarker.length;
-      
-      updatedContent = existingContent.substring(0, startIndex) +
-                       portfolioMarkdown +
-                       existingContent.substring(endIndex);
-    } else {
-      // Append or create new README
-      if (existingContent.trim()) {
-        updatedContent = existingContent.trim() + '\n\n' + portfolioMarkdown + '\n';
-      } else {
-        updatedContent = portfolioMarkdown + '\n';
-      }
-    }
-
-    // Push the updated README.md back to GitHub
+    const updatedContent = updateReadmeTable(existingContent, completedItems);
     const body = {
-      message: 'docs: update DSA portfolio README [skip ci]',
-      content: btoa(unescape(encodeURIComponent(updatedContent))),
+      message: 'docs: update DSA solutions table [skip ci]',
+      content: encodeBase64(updatedContent),
     };
     if (sha) body.sha = sha;
     if (githubBranch) body.branch = githubBranch;
 
     try {
-      const putRes = await fetch(baseUrl, {
+      let putRes = await fetch(baseUrl, {
         method: 'PUT',
         headers: {
           'Authorization': authHeader,
@@ -216,120 +233,18 @@ export class SyncService {
         body: JSON.stringify(body)
       });
 
+      if (!putRes.ok && (putRes.status === 409 || putRes.status === 422) && retryCount === 0) {
+        return this._updateReadme(completedItems, config, 1);
+      }
       if (!putRes.ok) {
         log.warn(`Failed to commit README.md update (Status: ${putRes.status})`);
         return false;
       }
-
       log.info('README.md portfolio updated successfully.');
       return true;
     } catch (err) {
       log.warn('Failed to commit README.md update due to network/CORS error:', err);
       return false;
     }
-  }
-
-  /**
-   * Generates the markdown string for the portfolio.
-   * 
-   * @private
-   * @param {Array<Object>} completedItems - List of completed QueueItems.
-   * @returns {string}
-   */
-  static _generatePortfolioMarkdown(completedItems) {
-    // 1. Calculate Statistics
-    let leetcode = { total: 0, easy: 0, medium: 0, hard: 0 };
-    let gfg = { total: 0, easy: 0, medium: 0, hard: 0, basic: 0, school: 0 };
-
-    completedItems.forEach(item => {
-      const p = item.payload;
-      const platform = p.platform.toLowerCase();
-      const diff = p.difficulty.toLowerCase().trim();
-
-      if (platform === 'leetcode') {
-        leetcode.total++;
-        if (diff === 'easy') leetcode.easy++;
-        else if (diff === 'medium') leetcode.medium++;
-        else if (diff === 'hard') leetcode.hard++;
-      } else if (platform === 'gfg') {
-        gfg.total++;
-        if (diff === 'easy') gfg.easy++;
-        else if (diff === 'medium') gfg.medium++;
-        else if (diff === 'hard') gfg.hard++;
-        else if (diff === 'basic') gfg.basic++;
-        else if (diff === 'school') gfg.school++;
-      }
-    });
-
-    const totalStats = {
-      total: leetcode.total + gfg.total,
-      easy: leetcode.easy + gfg.easy,
-      medium: leetcode.medium + gfg.medium,
-      hard: leetcode.hard + gfg.hard,
-      other: (gfg.basic || 0) + (gfg.school || 0)
-    };
-
-    // Sort completedItems by platform and difficulty
-    const difficultyWeight = {
-      'easy': 1,
-      'medium': 2,
-      'hard': 3,
-      'basic': 4,
-      'school': 5
-    };
-
-    const sortedItems = [...completedItems].sort((a, b) => {
-      const platA = a.payload.platform.toLowerCase();
-      const platB = b.payload.platform.toLowerCase();
-      if (platA !== platB) {
-        return platA === 'leetcode' ? -1 : 1;
-      }
-
-      const diffA = a.payload.difficulty.toLowerCase();
-      const diffB = b.payload.difficulty.toLowerCase();
-      const weightA = difficultyWeight[diffA] || 99;
-      const weightB = difficultyWeight[diffB] || 99;
-      if (weightA !== weightB) {
-        return weightA - weightB;
-      }
-
-      return a.payload.title.localeCompare(b.payload.title);
-    });
-
-    // Build markdown content
-    let md = '<!-- COMMITDSA_START -->\n';
-    md += '# DSA Portfolio\n\n';
-    md += 'Welcome to my DSA solutions portfolio! This repository contains my solved problems on LeetCode and GeeksforGeeks, synchronized automatically using [CommitDSA](https://github.com/aprshubh/CommitDSA).\n\n';
-    md += '## Statistics\n\n';
-    md += '| Platform | Total Solved | Easy | Medium | Hard |' + (totalStats.other > 0 ? ' Basic/School |' : '') + '\n';
-    md += '| --- | --- | --- | --- | --- |' + (totalStats.other > 0 ? ' --- |' : '') + '\n';
-    
-    // LeetCode Stats Row
-    md += `| LeetCode | ${leetcode.total} | ${leetcode.easy} | ${leetcode.medium} | ${leetcode.hard} |` + (totalStats.other > 0 ? ' - |' : '') + '\n';
-    
-    // GFG Stats Row
-    md += `| GeeksforGeeks | ${gfg.total} | ${gfg.easy} | ${gfg.medium} | ${gfg.hard} |` + (totalStats.other > 0 ? ` ${gfg.basic + gfg.school} |` : '') + '\n';
-    
-    // Combined Total Row
-    md += `| **Total** | **${totalStats.total}** | **${totalStats.easy}** | **${totalStats.medium}** | **${totalStats.hard}** |` + (totalStats.other > 0 ? ` **${totalStats.other}** |` : '') + '\n\n';
-
-    md += '## Solved Problems\n\n';
-    md += '| # | Problem | Platform | Difficulty | Language | Code |\n';
-    md += '| --- | --- | --- | --- | --- | --- |\n';
-
-    sortedItems.forEach((item, index) => {
-      const p = item.payload;
-      const platName = p.platform.toLowerCase() === 'leetcode' ? 'LeetCode' : 'GeeksforGeeks';
-      const path = p.customPath || getSyncPath(p.platform, p.difficulty, p.title, p.language);
-      const codeLink = `[Code](./${path})`;
-      
-      // Escape pipe characters in problem title to avoid breaking markdown tables
-      const escapedTitle = p.title.replace(/\|/g, '\\|');
-      
-      md += `| ${index + 1} | [${escapedTitle}](${p.url}) | ${platName} | ${p.difficulty} | ${p.language.toUpperCase()} | ${codeLink} |\n`;
-    });
-
-    md += '<!-- COMMITDSA_END -->';
-    return md;
   }
 }

@@ -88,6 +88,31 @@
     return 'Medium'; // general default fallback
   }
 
+  function getProblemStatementFromDOM() {
+    const selectors = [
+      '.problem-statement',
+      '[class*="problem_statement"]',
+      '[class*="problemStatement"]',
+      '[class*="problem-content"]',
+      '[class*="problem_content"]',
+      'article[data-testid*="problem"]',
+      'main article'
+    ];
+    for (const selector of selectors) {
+      const element = document.querySelector(selector);
+      if (element && element.textContent.trim().length > 20) {
+        return element.innerHTML.trim();
+      }
+    }
+    const headings = [...document.querySelectorAll('h2, h3, h4')];
+    const heading = headings.find(element => /problem statement|description/i.test(element.textContent));
+    if (heading) {
+      const container = heading.closest('section, article, div');
+      if (container && container.textContent.trim().length > 20) return container.innerHTML.trim();
+    }
+    return '';
+  }
+
   function getCodeFromAce() {
     // 1. GFG Ace Editor
     if (window.ace) {
@@ -164,7 +189,8 @@
       code: code,
       url: `https://practice.geeksforgeeks.org/problems/${titleSlug}/1`,
       topics: [],
-      metadata: {}
+      metadata: {},
+      statement: getProblemStatementFromDOM()
     };
 
     window.postMessage({

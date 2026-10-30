@@ -232,6 +232,7 @@ export function registerListeners() {
               questionFrontendId
               title
               difficulty
+              content
             }
           }
         `;
@@ -249,9 +250,10 @@ export function registerListeners() {
           .then(res => res.json())
           .then(result => {
             const question = result.data?.question;
-            if (question && question.questionFrontendId) {
-              solvedProblem.title = `${question.questionFrontendId}. ${question.title}`;
-              solvedProblem.difficulty = question.difficulty;
+            if (question) {
+              if (question.questionFrontendId) solvedProblem.title = `${question.questionFrontendId}. ${question.title}`;
+              if (question.difficulty) solvedProblem.difficulty = question.difficulty;
+              if (question.content) solvedProblem.statement = question.content;
             }
             sendResponse(solvedProblem);
           })
@@ -274,7 +276,7 @@ export function registerListeners() {
 
     if (type === 'GET_SYNC_PATH') {
       const p = request.data;
-      const syncPath = getSyncPath(p.platform, p.difficulty, p.title, p.language);
+      const syncPath = getSyncPath(p.platform, p.difficulty, p.title, p.language, p.slug);
       sendResponse(syncPath);
       return false; // synchronous reply
     }

@@ -74,38 +74,50 @@ export function getFolderCategory(platform, difficulty) {
 }
 
 /**
+ * Converts a problem title into the stable folder slug used in the repository.
+ *
+ * @param {string} title
+ * @returns {string}
+ */
+export function getProblemFolderSlug(title) {
+  const withoutNumber = (title || '').trim().replace(/^\d+[\.\s]+/, '');
+  const slug = withoutNumber
+    .replace(/[^a-zA-Z0-9\s-]/g, '')
+    .trim()
+    .replace(/[\s-]+/g, '-');
+  return slug || 'Problem';
+}
+
+/**
+ * Returns the numeric problem id, padded to four digits.
+ *
+ * @param {string} title
+ * @param {string} [slug]
+ * @returns {string}
+ */
+export function getProblemNumber(title, slug = '') {
+  const source = `${title || ''} ${slug || ''}`;
+  const match = source.match(/(?:^|\D)(\d{1,})/);
+  return String(match ? parseInt(match[1], 10) : 0).padStart(4, '0');
+}
+
+/**
  * Generates the clean target repository path for a solved challenge.
  * 
  * @param {string} platform - The platform name.
  * @param {string} difficulty - Problem difficulty.
  * @param {string} title - Problem title.
  * @param {string} lang - Programming language.
+ * @param {string} [slug] - Platform problem slug used as an id fallback.
  * @returns {string} Formatted relative repository file path.
  */
-export function getSyncPath(platform, difficulty, title, lang) {
-  let problemNumber = '0';
-  let cleanTitle = title.trim();
-  const numMatch = cleanTitle.match(/^(\d+)[\.\s]+(.*)$/);
-  if (numMatch) {
-    problemNumber = numMatch[1];
-    cleanTitle = numMatch[2];
-  }
-
-  // Convert clean title to PascalCase / CamelCase (no underscores or special characters)
-  const camelCaseTitle = cleanTitle
-    .replace(/[^a-zA-Z0-9\s-_]/g, '')
-    .split(/[\s-_]+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join('');
-
+export function getSyncPath(platform, difficulty, title, lang, slug = '') {
   const extension = getFileExtension(lang);
-  const filename = `${problemNumber}_${camelCaseTitle}.${extension}`;
   const category = getFolderCategory(platform, difficulty);
-  
-  // Normalize platform casing for path consistency
-  const platformFolder = platform.toLowerCase() === 'leetcode' ? 'LeetCode' : 'GFG';
-  
-  return `${platformFolder}/${category}/${filename}`;
+  const prefix = platform.toLowerCase() === 'leetcode' ? 'LC' : 'GFG';
+  const problemNumber = getProblemNumber(title, slug);
+  const folder = `${category}/${prefix}-${problemNumber}-${getProblemFolderSlug(title)}`;
+  return `${folder}/solution.${extension}`;
 }
 
 /**
@@ -128,4 +140,3 @@ export function getActiveDateString(platform = 'leetcode') {
     return `${yyyy}-${mm}-${dd}`;
   }
 }
-

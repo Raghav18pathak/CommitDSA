@@ -53,6 +53,7 @@ function normalizeAcceptedSubmission(rawProblem) {
 
   const title = safeString(rawProblem.title, 220) || titleSlug;
   const difficulty = safeString(rawProblem.difficulty, 40) || 'Medium';
+  const statement = safeString(rawProblem.statement, 500000) || safeString(rawProblem.problemStatement, 500000);
   const topics = Array.isArray(rawProblem.topics)
     ? rawProblem.topics.filter(topic => typeof topic === 'string').map(topic => safeString(topic, 80)).filter(Boolean).slice(0, 30)
     : [];
@@ -68,7 +69,8 @@ function normalizeAcceptedSubmission(rawProblem) {
     code,
     url: parseSafeProblemUrl(rawProblem.url, normalizedPlatform),
     solvedAt: Date.now(),
-    metadata: rawProblem.metadata && typeof rawProblem.metadata === 'object' ? rawProblem.metadata : {}
+    metadata: rawProblem.metadata && typeof rawProblem.metadata === 'object' ? rawProblem.metadata : {},
+    statement
   };
 }
 

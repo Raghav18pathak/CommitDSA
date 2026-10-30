@@ -77,12 +77,12 @@ describe('path.js utility tests', () => {
   describe('getSyncPath', () => {
     it('should generate deterministic LeetCode sync path', () => {
       const path = getSyncPath('LeetCode', 'Easy', '1. Two Sum', 'python3');
-      expect(path).toBe('LeetCode/Easy/1_TwoSum.py');
+      expect(path).toBe('Easy/LC-0001-Two-Sum/solution.py');
     });
 
     it('should generate deterministic GFG sync path', () => {
       const path = getSyncPath('GFG', 'Medium', 'Dijkstra Algorithm', 'java');
-      expect(path).toBe('GFG/Medium/0_DijkstraAlgorithm.java');
+      expect(path).toBe('Medium/GFG-0000-Dijkstra-Algorithm/solution.java');
     });
   });
 });

@@ -145,7 +145,7 @@ export class QueueService {
           const solvedProblem = item.payload;
           
           // Generate file configurations
-          const path = solvedProblem.customPath || getSyncPath(solvedProblem.platform, solvedProblem.difficulty, solvedProblem.title, solvedProblem.language);
+          const path = solvedProblem.customPath || getSyncPath(solvedProblem.platform, solvedProblem.difficulty, solvedProblem.title, solvedProblem.language, solvedProblem.slug);
           const content = formatSourceCode(solvedProblem);
           const commitMessage = formatCommitMessage(solvedProblem);
 
@@ -154,6 +154,16 @@ export class QueueService {
             { path, content, commitMessage },
             { githubToken, githubRepo, githubBranch }
           );
+
+          try {
+            await SyncService.pushProblemReadme(
+              solvedProblem,
+              path,
+              { githubToken, githubRepo, githubBranch }
+            );
+          } catch (readmeErr) {
+            log.error(`Failed to sync problem README for ${item.id}:`, readmeErr);
+          }
 
           // Mark completed
           await this._updateItemStatus(item.id, QUEUE_STATUS.COMPLETED);

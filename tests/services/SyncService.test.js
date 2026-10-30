@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { SyncService } from '../../src/services/SyncService.js';
+import { updateReadmeTable } from '../../src/utils/readme.js';
 
 // Setup global mock for fetch
 global.fetch = vi.fn();
@@ -70,23 +71,21 @@ describe('SyncService README update tests', () => {
     githubBranch: 'main'
   };
 
-  it('should correctly generate portfolio markdown', () => {
-    // @ts-ignore
-    const md = SyncService._generatePortfolioMarkdown(completedItems);
+  it('should generate the marked DSA table and deduplicate by problem URL', () => {
+    const md = updateReadmeTable('', completedItems);
 
-    expect(md).toContain('<!-- COMMITDSA_START -->');
-    expect(md).toContain('<!-- COMMITDSA_END -->');
-    expect(md).toContain('# DSA Portfolio');
-    expect(md).toContain('| LeetCode | 2 | 1 | 1 | 0 | - |');
-    expect(md).toContain('| GeeksforGeeks | 2 | 1 | 0 | 0 | 1 |');
-    expect(md).toContain('| **Total** | **4** | **2** | **1** | **0** | **1** |');
+    expect(md).toContain('<!-- DSA-TABLE-START -->');
+    expect(md).toContain('<!-- DSA-TABLE-END -->');
+    expect(md).toContain('Summary: 4 solved (Easy: 2, Medium: 1, Hard: 0)');
     expect(md).toContain('[1. Two Sum](https://leetcode.com/problems/two-sum/)');
     expect(md).toContain('[Find Duplicates](https://practice.geeksforgeeks.org/problems/find-duplicates/)');
-    expect(md).toContain('[Code](./LeetCode/Easy/1_TwoSum.cpp)');
+    expect(md).toContain('[Solution](./Easy/LC-0001-Two-Sum/solution.cpp)');
+    const updated = updateReadmeTable(md, [completedItems[0]]);
+    expect(updated.match(/https:\/\/leetcode\.com\/problems\/two-sum\//g).length).toBe(1);
   });
 
   it('should fetch README, update it within markers, and PUT it back', async () => {
-    const existingReadme = "Some custom introduction here.\n<!-- COMMITDSA_START -->\nold portfolio\n<!-- COMMITDSA_END -->\nSome custom footer here.";
+    const existingReadme = "Some custom introduction here.\n<!-- DSA-TABLE-START -->\nold portfolio\n<!-- DSA-TABLE-END -->\nSome custom footer here.";
     
     // Mock GET response returning existing README
     // @ts-ignore
@@ -139,9 +138,9 @@ describe('SyncService README update tests', () => {
 
     expect(updatedContent).toContain("Some custom introduction here.");
     expect(updatedContent).toContain("Some custom footer here.");
-    expect(updatedContent).toContain("<!-- COMMITDSA_START -->");
-    expect(updatedContent).toContain("<!-- COMMITDSA_END -->");
-    expect(updatedContent).toContain("| LeetCode | 2 | 1 | 1 | 0 | - |");
+    expect(updatedContent).toContain("<!-- DSA-TABLE-START -->");
+    expect(updatedContent).toContain("<!-- DSA-TABLE-END -->");
+    expect(updatedContent).toContain('Summary: 4 solved');
     expect(requestBody.sha).toBe('abc123sha');
     expect(requestBody.branch).toBe('main');
   });
@@ -173,9 +172,9 @@ describe('SyncService README update tests', () => {
     const requestBody = JSON.parse(putCallArgs[1].body);
     const updatedContent = decodeURIComponent(escape(atob(requestBody.content)));
 
-    expect(updatedContent).toContain("<!-- COMMITDSA_START -->");
-    expect(updatedContent).toContain("<!-- COMMITDSA_END -->");
-    expect(updatedContent).toContain("| LeetCode | 2 | 1 | 1 | 0 | - |");
+    expect(updatedContent).toContain("<!-- DSA-TABLE-START -->");
+    expect(updatedContent).toContain("<!-- DSA-TABLE-END -->");
+    expect(updatedContent).toContain('Summary: 4 solved');
     expect(requestBody.sha).toBeUndefined(); // No SHA since file was created
   });
 });
