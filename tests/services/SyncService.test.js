@@ -76,7 +76,7 @@ describe('SyncService README update tests', () => {
 
     expect(md).toContain('<!-- DSA-TABLE-START -->');
     expect(md).toContain('<!-- DSA-TABLE-END -->');
-    expect(md).toContain('Summary: 4 solved (Easy: 2, Medium: 1, Hard: 0)');
+    expect(md).toContain('Summary: 4 solved (Easy: 2, Medium: 1, Hard: 0, Basic: 1)');
     expect(md).toContain('[1. Two Sum](https://leetcode.com/problems/two-sum/)');
     expect(md).toContain('[Find Duplicates](https://practice.geeksforgeeks.org/problems/find-duplicates/)');
     expect(md).toContain('[Solution](./Easy/LC-0001-Two-Sum/solution.cpp)');

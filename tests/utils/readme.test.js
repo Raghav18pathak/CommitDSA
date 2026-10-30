@@ -54,4 +54,38 @@ describe('readme.js utility tests', () => {
     expect(updatedTable).toContain('solution.py');
     expect(updatedTable).not.toContain('solution.cpp');
   });
+
+  it('should keep a single relative prefix across repeated updates', () => {
+    let table = '';
+    const newItems = [
+      items[0],
+      {
+        payload: {
+          platform: 'leetcode',
+          difficulty: 'Easy',
+          title: '2. Add Two Numbers',
+          slug: 'add-two-numbers',
+          language: 'cpp',
+          url: 'https://leetcode.com/problems/add-two-numbers/'
+        }
+      },
+      {
+        payload: {
+          platform: 'leetcode',
+          difficulty: 'Easy',
+          title: '3. Longest Substring',
+          slug: 'longest-substring',
+          language: 'cpp',
+          url: 'https://leetcode.com/problems/longest-substring/'
+        }
+      }
+    ];
+
+    for (const item of newItems) {
+      table = generateReadmeTable(table, [item]);
+    }
+
+    expect(table.match(/\[Solution\]\(\.\/Easy\/[^)]*\)/g)).toHaveLength(3);
+    expect(table).not.toContain('././');
+  });
 });

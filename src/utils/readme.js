@@ -78,7 +78,7 @@ export function parseReadmeRows(content) {
         url: problem[2],
         platform: cells[2],
         difficulty: cells[3],
-        solution: solution[1]
+        solution: solution[1].replace(/^(\.\/)+/, '')
       };
     })
     .filter(Boolean);
@@ -99,13 +99,13 @@ export function generateReadmeTable(existingSection, completedItems) {
   }
 
   const values = [...rows.values()];
-  const counts = { Easy: 0, Medium: 0, Hard: 0 };
+  const counts = { Easy: 0, Medium: 0, Hard: 0, Basic: 0 };
   for (const row of values) {
     if (counts[row.difficulty] !== undefined) counts[row.difficulty]++;
   }
 
   let output = `${README_START_MARKER}\n`;
-  output += `Summary: ${values.length} solved (Easy: ${counts.Easy}, Medium: ${counts.Medium}, Hard: ${counts.Hard})\n\n`;
+  output += `Summary: ${values.length} solved (Easy: ${counts.Easy}, Medium: ${counts.Medium}, Hard: ${counts.Hard}, Basic: ${counts.Basic})\n\n`;
   output += '| # | Problem | Platform | Difficulty | Solution |\n';
   output += '| --- | --- | --- | --- | --- |\n';
   values.forEach((row, index) => {
