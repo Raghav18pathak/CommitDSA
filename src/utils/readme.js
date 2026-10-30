@@ -67,15 +67,21 @@ export function readmeRowFromItem(item) {
  */
 export function parseReadmeRows(content) {
   return content.split(/\r?\n/)
-    .map(line => line.match(/^\|\s*\d+\s*\|\s*(.*?)\s*\|\s*\[(.*?)\]\((.*?)\)\s*\|\s*(.*?)\s*\|\s*\[(?:Solution|Code)\]\((.*?)\)\s*\|$/))
-    .filter(Boolean)
-    .map(match => ({
-      title: match[2],
-      url: match[3],
-      platform: match[4],
-      difficulty: match[5],
-      solution: match[6]
-    }));
+    .map(line => line.trim().replace(/^\|/, '').replace(/\|$/, '').split(' | ').map(cell => cell.trim()))
+    .filter(cells => cells.length === 5 && /^\d+$/.test(cells[0]))
+    .map(cells => {
+      const problem = cells[1].match(/^\[(.*?)\]\((.*?)\)$/);
+      const solution = cells[4].match(/^\[(?:Solution|Code)\]\((.*?)\)$/);
+      if (!problem || !solution) return null;
+      return {
+        title: problem[1],
+        url: problem[2],
+        platform: cells[2],
+        difficulty: cells[3],
+        solution: solution[1]
+      };
+    })
+    .filter(Boolean);
 }
 
 /**
