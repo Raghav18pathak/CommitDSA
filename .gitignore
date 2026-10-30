@@ -22,7 +22,9 @@ Thumbs.db
 
 # Assets directory
 assets/
+!src/assets/
+!src/assets/icons/
+!src/assets/icons/*.png
 
 # Node dependencies
 node_modules/
-
